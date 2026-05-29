@@ -1,0 +1,60 @@
+# syntax=docker/dockerfile:1.7
+
+# ──────────────────────────────────────────────────────────────────────
+# Build stage: install all deps, compile TypeScript → dist/.
+# ──────────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS build
+WORKDIR /app
+
+# Copy lockfiles first for cached layer reuse.
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Source + build config.
+COPY tsconfig.json tsconfig.build.json ./
+COPY src ./src
+COPY scripts ./scripts
+RUN npm run build
+
+# ──────────────────────────────────────────────────────────────────────
+# Runtime stage: only production deps + compiled JS + bundled assets.
+# ──────────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS runtime
+WORKDIR /app
+
+# Trim to production deps for a smaller image. Reuses the lockfile so
+# we get the exact versions used at build time.
+ENV NODE_ENV=production
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# The compiled CLI + the docker-compose.yml the CLI references for
+# `mock up`/`down`. In the deployed setup the gateway never calls
+# `mock up` (the stack is started by docker compose externally) but we
+# bundle the file anyway so the binary is self-contained.
+COPY --from=build /app/dist ./dist
+COPY docker-compose.yml ./docker-compose.yml
+
+# Specs baked into the image as a default — the prod compose file
+# mounts ./specs over this if you want hot-update behaviour.
+COPY specs ./specs
+
+# Entrypoint waits for Microcks, syncs every spec, then runs the gateway.
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Sensible defaults — overridable via env in docker-compose.prod.yml.
+ENV PORT=3000 \
+    MICROCKS_URL=http://microcks:8080 \
+    OAUTH_URL=http://mock-oauth2:8080 \
+    MOCK_HOME=/app \
+    MOCK_STATE_DIR=/app/.state \
+    TRUST_PROXY=1
+
+EXPOSE 3000
+
+# Liveness — Docker / orchestrators can use this to know when we're ready.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+  CMD wget -q -O - http://localhost:3000/healthz || exit 1
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
