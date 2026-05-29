@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.env
+
+# Per-project state (now CWD-based — these may appear in any directory
+# where someone runs `mock`, not just the project root).
+.mock-state.json
+.mock-tunnel.log
+data/
+
+# Build/scan artefacts
+.tmp/
+llm-scanner/output/

@@ -1,0 +1,59 @@
+{
+  "name": "mock-server-automation",
+  "version": "0.2.4",
+  "description": "CLI utility that ingests OpenAPI / Postman specs, spins up Microcks + mock-oauth2 in containers, runs a stateful HTTP gateway, mints credentials, and exposes everything through a Cloudflare quick tunnel.",
+  "private": false,
+  "type": "commonjs",
+  "main": "dist/cli.js",
+  "bin": {
+    "mock": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "docker-compose.yml",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "mock": "tsx src/cli.ts",
+    "build": "tsc -p tsconfig.build.json && node scripts/postbuild.cjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.4.3",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "axios": "^1.7.7",
+    "commander": "^12.1.0",
+    "express": "^4.21.1",
+    "form-data": "^4.0.1",
+    "http-proxy-middleware": "^3.0.3",
+    "jose": "^6.2.3",
+    "js-yaml": "^4.1.0",
+    "kleur": "^4.1.5"
+  },
+  "bundleDependencies": [
+    "@inquirer/prompts",
+    "ajv",
+    "ajv-formats",
+    "axios",
+    "commander",
+    "express",
+    "form-data",
+    "http-proxy-middleware",
+    "jose",
+    "js-yaml",
+    "kleur"
+  ],
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

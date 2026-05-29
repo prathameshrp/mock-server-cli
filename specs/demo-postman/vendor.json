@@ -1,0 +1,7 @@
+{
+  "displayName": "Demo Postman (sample collection)",
+  "auth": {
+    "type": "none",
+    "notes": "Sample Postman collection used to verify Postman ingestion + envelope/pagination detection."
+  }
+}

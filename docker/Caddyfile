@@ -1,0 +1,66 @@
+# Reverse proxy in front of the mock gateway.
+#
+# DOMAIN behaviour:
+#   - DOMAIN=mocks.example.com   → Caddy gets a free TLS cert from
+#     Let's Encrypt (HTTP-01 challenge on :80) and serves the gateway
+#     over HTTPS. Just point an A record at the VM and you're done.
+#   - DOMAIN=:80                 → Caddy serves plain HTTP on :80,
+#     useful while DNS hasn't propagated or for IP-only access.
+#
+# The ACME_EMAIL env var is optional but recommended — Let's Encrypt
+# uses it for expiry notifications. Caddy works without it.
+
+{
+	# Caddy logs to stdout by default; keep them at INFO so we see ACME
+	# progress without DEBUG noise.
+	log {
+		output stdout
+		level INFO
+	}
+	# If you want Let's Encrypt to email you cert-expiry notices, add:
+	#   email you@yourdomain.com
+	# (above, inside this global block). Anonymous issuance works fine
+	# without it for a single domain.
+}
+
+{$DOMAIN} {
+	# Strip noisy server header.
+	header -Server
+
+	# Always-on healthcheck — useful for uptime monitors that don't
+	# want to traverse the rest of the routing.
+	handle /healthz {
+		reverse_proxy gateway:3000
+	}
+
+	# Anything under /mock/* is the public API surface — auth, stateful
+	# CRUD, and Microcks proxying all happen inside the gateway.
+	handle /mock/* {
+		reverse_proxy gateway:3000 {
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+
+	# OAuth2 token endpoints — exposed so external integrations (ISC,
+	# etc.) can complete the client-credentials flow against the mock.
+	handle /oauth/* {
+		uri strip_prefix /oauth
+		reverse_proxy mock-oauth2:8080 {
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+
+	# Root → discovery JSON from the gateway (lists systems + base URLs).
+	handle / {
+		reverse_proxy gateway:3000
+	}
+
+	# Everything else: 404. We deliberately don't expose the Microcks
+	# admin UI through Caddy — it shouldn't be reachable from the public
+	# internet. SSH-tunnel to :8585 if you need it.
+	handle {
+		respond "Not found. See / for available systems, or /mock/<system>/… for mock APIs." 404
+	}
+}

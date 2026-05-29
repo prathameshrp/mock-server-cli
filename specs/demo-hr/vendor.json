@@ -1,0 +1,7 @@
+{
+  "displayName": "Demo HR (sample OpenAPI)",
+  "auth": {
+    "type": "bearer",
+    "notes": "Bearer JWT minted by the bundled mock-oauth2-server. Use `mock token demo-hr --raw` to grab one."
+  }
+}
